@@ -38,17 +38,18 @@ public class GridLightsExperiment extends Application {
   private static final Random RANDOM = ThreadLocalRandom.current();
   private static final List<int[]> movements = Arrays.asList(new int[]{-1, 0}, new int[]{1, 0}, new int[]{0, 1},
           new int[]{0, -1});
-  private static final List<MovementBehaviour> MOVEMENT_PATTERNS = Arrays.asList(new LeftRightBehaviour(), new UpDownBehaviour(),
+  private static final List<MovementBehaviour> MOVEMENT_BEHAVIOURS = Arrays.asList(new LeftRightBehaviour(), new UpDownBehaviour(),
           (p, r, c) -> new int[]{0, 0}, new ClockwiseBehaviour(), new CounterClockwiseBehaviour());
-  private static final int MAX_ITERATION = 2;
+  private static final int EXPERIMENTS = 2;
   private static final int ROWS = 3;
   private static final int COLS = 3;
-  private static final boolean SEND = false;
+  private static final boolean SEND_STIMULUS = false;
   private static final Duration STEP_DURATION = Duration.seconds(2);
+
   private static final String HOST = "10.17.2.185";
   private static final int PORT = 15361;
 
-  private int iteration = 1;
+  private int experimentNo = 1;
   private int[] persecutorPosition;
   private int[] pursuedPosition;
 
@@ -111,20 +112,16 @@ public class GridLightsExperiment extends Application {
   }
 
   private void startExperiment() throws IOException {
-    FileWriter fileWriter = new FileWriter(FILENAME + '_' + String.valueOf(iteration));
+    FileWriter fileWriter = new FileWriter(FILENAME + '_' + String.valueOf(experimentNo));
     fileWriter.write(String.valueOf(ROWS) + 'x' + String.valueOf(COLS));
     fileWriter.write('\n');
     EVENTS_COUNTER.count(START);
 
-    persecutorPosition = newStartingPosition();
-    pursuedPosition = newPursuedPosition();
-    final MovementBehaviour movementBehaviour = MOVEMENT_PATTERNS.get(RANDOM.nextInt(MOVEMENT_PATTERNS.size()));
-    currentGrid = new LightsGridPane(ROWS, COLS, persecutorPosition, pursuedPosition);
-    pane.setCenter(currentGrid);
+    MovementBehaviour behaviour = initExperiment();
     fileWriter.write(stateToString());
 
     final StimulusSender sender = new StimulusSender();
-    if (SEND) {
+    if (SEND_STIMULUS) {
       try {
         sender.open(HOST, PORT);
         sender.send(3L, 0L);
@@ -136,65 +133,78 @@ public class GridLightsExperiment extends Application {
 
     final Timeline timeline = new Timeline();
     final KeyFrame keyFrame = new KeyFrame(STEP_DURATION, e -> {
-      final int prevDistance = distanceToPursued(pursuedPosition);
-      final List<int[]> validMovements = movements.stream()
-              .filter(currentGrid::isValidOffset)
-              .collect(Collectors.toList());
-      final int[] movement = validMovements.get(RANDOM.nextInt(validMovements.size()));
-      moveLightWithOffset(persecutorPosition, movement, currentGrid::movePersecutorWithOffset);
-      if (!Arrays.equals(persecutorPosition, pursuedPosition)) {
-        moveLightWithOffset(pursuedPosition, movementBehaviour.getOffset(pursuedPosition, ROWS, COLS),
-                currentGrid::movePursuedWithOffset);
-      }
-
-      try {
-        fileWriter.write(stateToString());
-      } catch (IOException e1) {
-        e1.printStackTrace();
-      }
-
-      if (distanceToPursued(pursuedPosition) == 0) {
-        EVENTS_COUNTER.count(FINISH, CLOSER);
-        timeline.stop();
-        try {
-          fileWriter.close();
-        } catch (IOException e1) {
-          e1.printStackTrace();
-        }
-        if (SEND) {
-          try {
-            sender.send(4L, 0L);
-            sender.close();
-          } catch (Exception e1) {
-            e1.printStackTrace();
-          }
-        }
-        if (iteration < MAX_ITERATION) {
-          iteration++;
-          final Timeline tl = new Timeline(new KeyFrame(STEP_DURATION, oe -> {
-            pane.setCenter(counterPane);
-            counterPane.startTimer();
-          }));
-          tl.play();
-        } else {
-          System.out.println(EVENTS_COUNTER);
-        }
-      } else {
-        final int currentDistance = distanceToPursued(pursuedPosition);
-        final long distanceDifference = prevDistance - currentDistance;
-        EVENTS_COUNTER.count(getLabelByDistanceDifference(distanceDifference));
-        if (SEND) {
-          try {
-            sender.send(distanceDifference >= 0 ? 1 : 2, 0L);
-          } catch (Exception exception) {
-            exception.printStackTrace();
-          }
-        }
-      }
+      experimentIteration(fileWriter, timeline, sender, behaviour);
     });
     timeline.getKeyFrames().add(keyFrame);
     timeline.setCycleCount(Timeline.INDEFINITE);
     timeline.play();
+  }
+
+  private MovementBehaviour initExperiment() {
+    persecutorPosition = newStartingPosition();
+    pursuedPosition = newPursuedPosition();
+    currentGrid = new LightsGridPane(ROWS, COLS, persecutorPosition, pursuedPosition);
+    pane.setCenter(currentGrid);
+    return MOVEMENT_BEHAVIOURS.get(RANDOM.nextInt(MOVEMENT_BEHAVIOURS.size()));
+  }
+
+  private void experimentIteration(FileWriter fileWriter, Timeline timeline, StimulusSender sender, MovementBehaviour behaviour) {
+    final int prevDistance = distanceToPursued(pursuedPosition);
+    final List<int[]> validMovements = movements.stream()
+            .filter(currentGrid::isValidOffset)
+            .collect(Collectors.toList());
+    final int[] movement = validMovements.get(RANDOM.nextInt(validMovements.size()));
+    moveLightWithOffset(persecutorPosition, movement, currentGrid::movePersecutorWithOffset);
+    if (!Arrays.equals(persecutorPosition, pursuedPosition)) {
+      moveLightWithOffset(pursuedPosition, behaviour.getOffset(pursuedPosition, ROWS, COLS),
+              currentGrid::movePursuedWithOffset);
+    }
+
+    try {
+      fileWriter.write(stateToString());
+    } catch (IOException e1) {
+      e1.printStackTrace();
+    }
+
+    if (distanceToPursued(pursuedPosition) == 0) {
+      EVENTS_COUNTER.count(FINISH, CLOSER);
+      timeline.stop();
+      try {
+        fileWriter.close();
+      } catch (IOException e1) {
+        e1.printStackTrace();
+      }
+      if (SEND_STIMULUS) {
+        try {
+          sender.send(4L, 0L);
+          sender.close();
+        } catch (Exception e1) {
+          e1.printStackTrace();
+        }
+      }
+      if (experimentNo < EXPERIMENTS) {
+        experimentNo++;
+        final Timeline tl = new Timeline(new KeyFrame(STEP_DURATION, oe -> {
+          pane.setCenter(counterPane);
+          counterPane.startTimer();
+        }));
+        tl.play();
+      } else {
+        System.out.println(EVENTS_COUNTER);
+      }
+    } else {
+      final int currentDistance = distanceToPursued(pursuedPosition);
+      final long distanceDifference = prevDistance - currentDistance;
+      EVENTS_COUNTER.count(getLabelByDistanceDifference(distanceDifference));
+      if (SEND_STIMULUS) {
+        try {
+          sender.send(distanceDifference >= 0 ? 1 : 2, 0L);
+        } catch (Exception exception) {
+          exception.printStackTrace();
+        }
+      }
+    }
+
   }
 
   private void moveLightWithOffset(int[] position, final int[] offset, final Consumer<int[]> consumer) {
