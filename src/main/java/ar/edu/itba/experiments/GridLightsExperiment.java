@@ -239,20 +239,8 @@ public class GridLightsExperiment extends Application {
   }
 
   private String stateToString() {
-    StringBuilder sb = new StringBuilder();
-    for (int row = 0; row < ROWS; row++) {
-      for (int col = 0; col < COLS; col++) {
-        if (pursuedPosition[0] == row && pursuedPosition[1] == col) {
-          sb.append('G');
-        } else if (persecutorPosition[0] == row && persecutorPosition[1] == col) {
-          sb.append('P');
-        } else {
-          sb.append('-');
-        }
-      }
-      sb.append('\n');
-    }
-    sb.append('\n');
-    return sb.toString();
+    final int persecutor = persecutorPosition[0] * COLS + persecutorPosition[1];
+    final int pursued = pursuedPosition[0] * COLS + pursuedPosition[1];
+    return persecutor + "-" + pursued + "\n\n";
   }
 }
