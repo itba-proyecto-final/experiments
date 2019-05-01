@@ -1,23 +1,8 @@
 package ar.edu.itba.experiments;
 
-import static java.lang.Math.abs;
-
-import ar.edu.itba.model.EventsCounter;
-import ar.edu.itba.model.CounterPane;
-import ar.edu.itba.model.LightsGridPane;
-import ar.edu.itba.model.StartScreen;
+import ar.edu.itba.model.*;
 import ar.edu.itba.model.behaviours.*;
 import ar.edu.itba.senders.StimulusSender;
-
-import java.io.FileWriter;
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Random;
-import java.util.concurrent.ThreadLocalRandom;
-import java.util.function.Consumer;
-import java.util.stream.Collectors;
-
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.application.Application;
@@ -33,20 +18,33 @@ import javafx.stage.Screen;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 
+import java.io.FileWriter;
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
+
+import static java.lang.Math.abs;
+
 public class GridLightsExperiment extends Application {
 
   private static final Random RANDOM = ThreadLocalRandom.current();
-  private static final List<int[]> movements = Arrays.asList(new int[]{-1, 0}, new int[]{1, 0}, new int[]{0, 1},
-          new int[]{0, -1});
   private static final List<MovementBehaviour> MOVEMENT_BEHAVIOURS = Arrays.asList(new LeftRightBehaviour(), new UpDownBehaviour(),
           (p, r, c) -> new int[]{0, 0}, new ClockwiseBehaviour(), new CounterClockwiseBehaviour());
+  private static final List<MovementBehaviour> NEVER_MOVE = Collections.singletonList((p, r, c) -> new int[]{0, 0});
   private static final int EXPERIMENTS = 2;
-  private static final int ROWS = 3;
-  private static final int COLS = 3;
+  private static final int ROWS = 2;
+  private static final int COLS = 2;
   private static final boolean SEND_STIMULUS = false;
   private static final Duration STEP_DURATION = Duration.seconds(2);
 
-  private static final String HOST = "10.17.2.185";
+  private static final String HOST = "10.17.2.150";
   private static final int PORT = 15361;
 
   private int experimentNo = 1;
@@ -63,11 +61,35 @@ public class GridLightsExperiment extends Application {
 
   private static final String FILENAME = "grid_lights_experiment";
 
+  private static LightsGridPane CURRENT_GRID;
   private BorderPane pane;
   private CounterPane counterPane;
-  private LightsGridPane currentGrid;
+
+  private static Function<String, int[]> GET_MOVEMENT;
+  private static Function<String, int[]> RANDOM_MOVEMENT = (state) -> {
+    final List<int[]> validMovements = Arrays.stream(Movement.values())
+            .map(Movement::getMovement)
+            .filter(CURRENT_GRID::isValidOffset)
+            .collect(Collectors.toList());
+    return validMovements.get(RANDOM.nextInt(validMovements.size()));
+  };
 
   public static void main(String[] args) {
+    if (args.length == 0) {
+      GET_MOVEMENT = RANDOM_MOVEMENT;
+    } else {
+      try {
+        final QTable qTable = new QTable(args[0]);
+          GET_MOVEMENT = (state) -> {
+          String action = qTable.getRecommendedAction(state);
+          final int[] movement = Movement.valueOf(action).getMovement();
+          return CURRENT_GRID.isValidOffset(movement) ? movement : RANDOM_MOVEMENT.apply(state);
+        };
+      } catch (IOException e) {
+        e.printStackTrace();
+      }
+    }
+
     launch(args);
   }
 
@@ -118,7 +140,7 @@ public class GridLightsExperiment extends Application {
     EVENTS_COUNTER.count(START);
 
     MovementBehaviour behaviour = initExperiment();
-    fileWriter.write(stateToString());
+    fileWriter.write(stateToString() + "\n\n");
 
     final StimulusSender sender = new StimulusSender();
     if (SEND_STIMULUS) {
@@ -143,25 +165,23 @@ public class GridLightsExperiment extends Application {
   private MovementBehaviour initExperiment() {
     persecutorPosition = newStartingPosition();
     pursuedPosition = newPursuedPosition();
-    currentGrid = new LightsGridPane(ROWS, COLS, persecutorPosition, pursuedPosition);
-    pane.setCenter(currentGrid);
-    return MOVEMENT_BEHAVIOURS.get(RANDOM.nextInt(MOVEMENT_BEHAVIOURS.size()));
+    CURRENT_GRID = new LightsGridPane(ROWS, COLS, persecutorPosition, pursuedPosition);
+    pane.setCenter(CURRENT_GRID);
+    return NEVER_MOVE.get(RANDOM.nextInt(NEVER_MOVE.size()));
   }
 
-  private void experimentIteration(FileWriter fileWriter, Timeline timeline, StimulusSender sender, MovementBehaviour behaviour) {
+  private void experimentIteration(FileWriter fileWriter, Timeline timeline, StimulusSender sender,
+                                   MovementBehaviour behaviour) {
     final int prevDistance = distanceToPursued(pursuedPosition);
-    final List<int[]> validMovements = movements.stream()
-            .filter(currentGrid::isValidOffset)
-            .collect(Collectors.toList());
-    final int[] movement = validMovements.get(RANDOM.nextInt(validMovements.size()));
-    moveLightWithOffset(persecutorPosition, movement, currentGrid::movePersecutorWithOffset);
+    final int[] movement = GET_MOVEMENT.apply(stateToString());
+    moveLightWithOffset(persecutorPosition, movement, CURRENT_GRID::movePersecutorWithOffset);
     if (!Arrays.equals(persecutorPosition, pursuedPosition)) {
       moveLightWithOffset(pursuedPosition, behaviour.getOffset(pursuedPosition, ROWS, COLS),
-              currentGrid::movePursuedWithOffset);
+              CURRENT_GRID::movePursuedWithOffset);
     }
 
     try {
-      fileWriter.write(stateToString());
+      fileWriter.write(stateToString() + "\n\n");
     } catch (IOException e1) {
       e1.printStackTrace();
     }
@@ -214,17 +234,19 @@ public class GridLightsExperiment extends Application {
   }
 
   private int[] newStartingPosition() {
-    return new int[]{RANDOM.nextInt(ROWS), RANDOM.nextInt(COLS)};
+//    return new int[]{RANDOM.nextInt(ROWS), RANDOM.nextInt(COLS)};
+    return new int[]{0, 0};
   }
 
   private int[] newPursuedPosition() {
-    int[] pursuedPosition;
-
-    do {
-      pursuedPosition = new int[]{RANDOM.nextInt(ROWS), RANDOM.nextInt(COLS)};
-    } while (distanceToPursued(pursuedPosition) <= 1);
-
-    return pursuedPosition;
+//    int[] pursuedPosition;
+//
+//    do {
+//      pursuedPosition = new int[]{RANDOM.nextInt(ROWS), RANDOM.nextInt(COLS)};
+//    } while (distanceToPursued(pursuedPosition) <= 1);
+//
+//    return pursuedPosition;
+    return new int[]{ROWS - 1, COLS - 1};
   }
 
   private int distanceToPursued(final int[] goalPosition) {
@@ -241,6 +263,6 @@ public class GridLightsExperiment extends Application {
   private String stateToString() {
     final int persecutor = persecutorPosition[0] * COLS + persecutorPosition[1];
     final int pursued = pursuedPosition[0] * COLS + pursuedPosition[1];
-    return persecutor + "-" + pursued + "\n\n";
+    return persecutor + "-" + pursued;
   }
 }
