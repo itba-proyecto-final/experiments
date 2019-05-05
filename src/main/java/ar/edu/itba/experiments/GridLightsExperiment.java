@@ -2,7 +2,7 @@ package ar.edu.itba.experiments;
 
 import ar.edu.itba.model.*;
 import ar.edu.itba.model.behaviours.*;
-import ar.edu.itba.senders.StimulusSender;
+import ar.edu.itba.io.senders.StimulusSender;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.application.Application;
@@ -27,7 +27,6 @@ import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static java.lang.Math.abs;

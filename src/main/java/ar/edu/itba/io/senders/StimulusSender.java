@@ -1,4 +1,4 @@
-package ar.edu.itba.senders;
+package ar.edu.itba.io.senders;
 
 import java.io.Closeable;
 import java.io.DataOutputStream;
