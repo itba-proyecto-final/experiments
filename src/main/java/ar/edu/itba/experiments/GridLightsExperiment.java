@@ -81,9 +81,11 @@ public class GridLightsExperiment extends Application {
       try {
         final QTable qTable = new QTable(args[0]);
           GET_MOVEMENT = (state) -> {
-          String action = qTable.getRecommendedAction(state);
-          final int[] movement = Movement.valueOf(action).getMovement();
-          return CURRENT_GRID.isValidOffset(movement) ? movement : RANDOM_MOVEMENT.apply(state);
+          String action = qTable.getRecommendedAction(state, (a -> {
+            final int[] movement = Movement.valueOf(a).getMovement();
+            return CURRENT_GRID.isValidOffset(movement);
+          }));
+          return Movement.valueOf(action).getMovement();
         };
       } catch (IOException e) {
         e.printStackTrace();

@@ -5,6 +5,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.function.Predicate;
 
 public class QTable {
 
@@ -38,17 +39,17 @@ public class QTable {
     br.close();
   }
 
-  public String getRecommendedAction(final String state) {
+  public String getRecommendedAction(final String state, Predicate<String> isValidAction) {
     final double[] row = table[states.get(state)];
     double max = Double.NEGATIVE_INFINITY;
-    int index = -1;
-    for (int i = 0; i < row.length; i++) {
-      if (row[i] > max) {
-        max = row[i];
-        index = i;
+    String action = "";
+    for (Map.Entry<Integer, String> entry : actions.entrySet()) {
+      if (row[entry.getKey()] > max && isValidAction.test(entry.getValue())) {
+        max = row[entry.getKey()];
+        action = entry.getValue();
       }
     }
-    return actions.get(index);
+    return action;
   }
 
 }
