@@ -1,35 +1,53 @@
 package ar.edu.itba.io;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
+import java.util.ArrayList;
+import java.util.List;
 
 public class GridLightsFileRotator {
 
   private static final int AVOIDABLE_LINES = 1;
 
-  public static void rotate(final String oldFilename, final String newFilename) throws IOException {
-    final FileWriter fw = new FileWriter(newFilename);
+  public static void rotate(final String oldFilename, final List<String> newFilenames) throws IOException {
+    final List<FileWriter> fws = new ArrayList<>();
+    newFilenames.forEach(fw -> {
+      try {
+        fws.add(new FileWriter(fw));
+      } catch (IOException e) {
+        e.printStackTrace();
+      }
+    });
     final BufferedReader br = new BufferedReader(new FileReader(oldFilename));
 
     String line = br.readLine();
-    fw.write(line + "\n");
+    for (FileWriter fw : fws) {
+      fw.write(line + "\n");
+    }
     final String[] dimensions = line.split("x");
     final int cols = Integer.valueOf(dimensions[1]);
     line = br.readLine();
 
     while (line != null) {
       final String[] oldPositions = line.split("-");
-      fw.write(String.valueOf(rotate(Integer.valueOf(oldPositions[0]), cols)) + '-' +
-              String.valueOf(rotate(Integer.valueOf(oldPositions[1]), cols)) + "\n");
+      int persecutorPosition = Integer.valueOf(oldPositions[0]);
+      int pursuedPosition = Integer.valueOf(oldPositions[1]);
+      for (FileWriter fw : fws) {
+        persecutorPosition = rotate(persecutorPosition, cols);
+        pursuedPosition = rotate(pursuedPosition, cols);
+        fw.write(String.valueOf(persecutorPosition) + '-' +
+                String.valueOf(pursuedPosition) + "\n");
+      }
+
       for (int i = 0; i < AVOIDABLE_LINES; i++) {
-        fw.write(br.readLine() + "\n");
+        line = br.readLine();
+        for (FileWriter fw : fws) {
+          fw.write(line + "\n");
+        }
       }
       line = br.readLine();
     }
 
-    end(fw, br);
+    end(fws, br);
 
   }
 
@@ -38,8 +56,10 @@ public class GridLightsFileRotator {
     return newPosition[0] * cols + newPosition[1];
   }
 
-  private static void end(final FileWriter fw, final BufferedReader br) throws IOException {
-    fw.close();
+  private static void end(final List<FileWriter> fws, final BufferedReader br) throws IOException {
+    for (FileWriter fw : fws) {
+      fw.close();
+    }
     br.close();
   }
 
