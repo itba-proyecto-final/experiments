@@ -3,11 +3,12 @@ package ar.edu.itba.model;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
-import java.util.Map;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.function.Predicate;
 
 public class QTable {
+
+  private static final Random RANDOM = new Random();
 
   private final Map<String, Integer> states = new TreeMap<>();
   private final Map<Integer, String> actions = new TreeMap<>();
@@ -42,14 +43,17 @@ public class QTable {
   public String getRecommendedAction(final String state, Predicate<String> isValidAction) {
     final double[] row = table[states.get(state)];
     double max = Double.NEGATIVE_INFINITY;
-    String action = "";
+    List<String> bestActions = new ArrayList<>();
     for (Map.Entry<Integer, String> entry : actions.entrySet()) {
-      if (row[entry.getKey()] > max && isValidAction.test(entry.getValue())) {
-        max = row[entry.getKey()];
-        action = entry.getValue();
+      if (row[entry.getKey()] >= max && isValidAction.test(entry.getValue())) {
+        if (row[entry.getKey()] > max) {
+          max = row[entry.getKey()];
+          bestActions.clear();
+        }
+        bestActions.add(entry.getValue());
       }
     }
-    return action;
+    return bestActions.get(RANDOM.nextInt(bestActions.size()));
   }
 
 }

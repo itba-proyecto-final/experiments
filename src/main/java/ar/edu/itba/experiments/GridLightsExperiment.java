@@ -34,16 +34,16 @@ import static java.lang.Math.abs;
 public class GridLightsExperiment extends Application {
 
   private static final Random RANDOM = ThreadLocalRandom.current();
-  private static final List<MovementBehaviour> MOVEMENT_BEHAVIOURS = Arrays.asList(new LeftRightBehaviour(), new UpDownBehaviour(),
-          (p, r, c) -> new int[]{0, 0}, new ClockwiseBehaviour(), new CounterClockwiseBehaviour());
+  private static final List<MovementBehaviour> MOVEMENT_BEHAVIOURS = Arrays.asList(new LeftRightBehaviour(), new UpDownBehaviour());
   private static final List<MovementBehaviour> NEVER_MOVE = Collections.singletonList((p, r, c) -> new int[]{0, 0});
-  private static final int EXPERIMENTS = 2;
-  private static final int ROWS = 2;
-  private static final int COLS = 2;
+  private static final List<MovementBehaviour> MOVEMENTS = NEVER_MOVE;
+  private static final int EXPERIMENTS = 5;
+  private static final int ROWS = 5;
+  private static final int COLS = 5;
   private static final boolean SEND_STIMULUS = false;
   private static final Duration STEP_DURATION = Duration.seconds(2);
 
-  private static final String HOST = "10.17.2.150";
+  private static final String HOST = "10.17.2.165";
   private static final int PORT = 15361;
 
   private int experimentNo = 1;
@@ -58,7 +58,7 @@ public class GridLightsExperiment extends Application {
   private static final String[] LABELS = new String[]{START, FINISH, CLOSER, SAME_DISTANCE, FURTHER};
   private static final EventsCounter EVENTS_COUNTER = new EventsCounter(LABELS);
 
-  private static final String FILENAME = "grid_lights_experiment";
+  private static final String FILENAME = "kk";
 
   private static LightsGridPane CURRENT_GRID;
   private BorderPane pane;
@@ -168,7 +168,7 @@ public class GridLightsExperiment extends Application {
     pursuedPosition = newPursuedPosition();
     CURRENT_GRID = new LightsGridPane(ROWS, COLS, persecutorPosition, pursuedPosition);
     pane.setCenter(CURRENT_GRID);
-    return NEVER_MOVE.get(RANDOM.nextInt(NEVER_MOVE.size()));
+    return MOVEMENTS.get(RANDOM.nextInt(MOVEMENTS.size()));
   }
 
   private void experimentIteration(FileWriter fileWriter, Timeline timeline, StimulusSender sender,
