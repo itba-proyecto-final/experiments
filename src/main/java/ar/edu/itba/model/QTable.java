@@ -44,14 +44,22 @@ public class QTable {
     final double[] row = table[states.get(state)];
     double max = Double.NEGATIVE_INFINITY;
     List<String> bestActions = new ArrayList<>();
+    List<String> validActions = new ArrayList<>();
     for (Map.Entry<Integer, String> entry : actions.entrySet()) {
-      if (row[entry.getKey()] >= max && isValidAction.test(entry.getValue())) {
-        if (row[entry.getKey()] > max) {
-          max = row[entry.getKey()];
-          bestActions.clear();
+      if (isValidAction.test(entry.getValue())) {
+        validActions.add(entry.getValue());
+        if (row[entry.getKey()] >= max) {
+          if (row[entry.getKey()] > max) {
+            max = row[entry.getKey()];
+            bestActions.clear();
+          }
+          bestActions.add(entry.getValue());
         }
-        bestActions.add(entry.getValue());
       }
+    }
+
+    if (RANDOM.nextDouble() < 0.5) {
+      return validActions.get(RANDOM.nextInt(validActions.size()));
     }
     return bestActions.get(RANDOM.nextInt(bestActions.size()));
   }
